@@ -6,7 +6,7 @@ A real-time bookmark manager built with Supabase and Vanilla JS, deployed on Ver
 >  https://smart-bookmark-git-devcode-prasads-projects-272591f5.vercel.app
 
 ## 📦 GitHub Repo
-> https://github.com/LakshmiPrasadGondinigari123/Smart-Bookmark/new/dev_code
+> https://github.com/LakshmiPrasadGondinigari123/Smart-Bookmark/tree/dev_code
 
 ---
 

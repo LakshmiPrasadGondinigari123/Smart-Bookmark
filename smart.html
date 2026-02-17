@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Smart Bookmark App</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg:#07090f; --card:#0f1117; --card2:#161b27;
+      --border:#1e2535; --border2:#2a3347;
+      --accent:#6c8fff; --accent2:#4d6ef5; --accentglow:rgba(108,143,255,0.15);
+      --gold:#f0c060; --gold2:#d4a030;
+      --danger:#ff5555; --success:#50fa7b;
+      --text:#e8ecf5; --muted:#6b7a9a; --muted2:#4a5570;
+      --radius:12px; --radius2:8px;
+      --font:'Inter',sans-serif; --serif:'Playfair Display',serif;
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    html{scroll-behavior:smooth;}
+    body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh;overflow-x:hidden;}
+
+    /* BACKGROUND */
+    body::before{
+      content:'';position:fixed;inset:0;
+      background: radial-gradient(ellipse 80% 50% at 20% -10%, rgba(108,143,255,0.07) 0%, transparent 60%),
+                  radial-gradient(ellipse 60% 40% at 80% 100%, rgba(108,143,255,0.05) 0%, transparent 60%);
+      pointer-events:none;z-index:0;
+    }
+
+    /* HEADER */
+    header{
+      display:flex;align-items:center;justify-content:space-between;
+      padding:16px 40px;
+      background:rgba(7,9,15,0.85);
+      backdrop-filter:blur(20px);
+      border-bottom:1px solid var(--border);
+      position:sticky;top:0;z-index:100;
+    }
+    .logo{display:flex;align-items:center;gap:10px;text-decoration:none;}
+    .logo-icon{
+      width:34px;height:34px;border-radius:9px;
+      background:linear-gradient(135deg,var(--accent),var(--accent2));
+      display:flex;align-items:center;justify-content:center;font-size:16px;
+      box-shadow:0 4px 16px var(--accentglow);
+    }
+    .logo-text{font-family:var(--serif);font-size:1.3rem;color:var(--text);font-weight:700;letter-spacing:-0.02em;}
+    .logo-text span{color:var(--accent);}
+
+    #user-info{display:none;align-items:center;gap:12px;}
+    .user-badge{
+      display:flex;align-items:center;gap:10px;
+      background:var(--card2);border:1px solid var(--border2);
+      border-radius:99px;padding:6px 14px 6px 6px;
+    }
+    #user-avatar{width:26px;height:26px;border-radius:50%;object-fit:cover;display:none;}
+    .avatar-placeholder{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:600;color:#fff;}
+    #user-name{font-size:.8rem;color:var(--text);font-weight:500;}
+    .btn-signout{
+      background:transparent;border:1px solid var(--border2);color:var(--muted);
+      padding:6px 14px;border-radius:var(--radius2);font-family:var(--font);font-size:.75rem;
+      cursor:pointer;transition:all .15s;
+    }
+    .btn-signout:hover{border-color:var(--danger);color:var(--danger);}
+
+    /* MAIN */
+    main{max-width:760px;margin:0 auto;padding:60px 20px 120px;position:relative;z-index:1;}
+
+    /* AUTH SCREEN */
+    #auth-screen{
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      min-height:calc(100vh - 80px);text-align:center;gap:0;
+    }
+    .auth-badge{
+      display:inline-flex;align-items:center;gap:8px;
+      background:var(--accentglow);border:1px solid rgba(108,143,255,0.3);
+      border-radius:99px;padding:6px 16px;
+      font-size:.75rem;color:var(--accent);font-weight:500;
+      margin-bottom:28px;
+    }
+    .auth-badge-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:glow 2s ease-in-out infinite;}
+    @keyframes glow{0%,100%{box-shadow:0 0 4px var(--accent);}50%{box-shadow:0 0 12px var(--accent);}}
+    .auth-title{
+      font-family:var(--serif);
+      font-size:clamp(2.6rem,7vw,4.2rem);
+      line-height:1.05;
+      font-weight:700;
+      color:var(--text);
+      margin-bottom:8px;
+    }
+    .auth-title em{color:var(--accent);font-style:italic;}
+    .auth-sub{font-size:.9rem;color:var(--muted);max-width:380px;line-height:1.7;margin:20px auto 40px;}
+    .auth-features{
+      display:flex;gap:16px;flex-wrap:wrap;justify-content:center;
+      margin-bottom:40px;
+    }
+    .auth-feature{
+      display:flex;align-items:center;gap:7px;
+      background:var(--card);border:1px solid var(--border);
+      border-radius:99px;padding:7px 16px;
+      font-size:.76rem;color:var(--muted);
+    }
+    .auth-feature-icon{font-size:.9rem;}
+    .btn-google{
+      display:inline-flex;align-items:center;gap:12px;
+      background:linear-gradient(135deg,var(--accent),var(--accent2));
+      color:#fff;border:none;border-radius:var(--radius);
+      padding:15px 36px;font-family:var(--font);font-size:.95rem;font-weight:600;
+      cursor:pointer;transition:all .2s;
+      box-shadow:0 8px 32px var(--accentglow);
+      letter-spacing:.01em;
+    }
+    .btn-google:hover{transform:translateY(-2px);box-shadow:0 12px 40px rgba(108,143,255,0.3);}
+    .btn-google:disabled{opacity:.6;cursor:not-allowed;transform:none;}
+    .btn-google svg{flex-shrink:0;}
+
+    /* APP SCREEN */
+    #app-screen{display:none;}
+
+    /* STATS BAR */
+    .stats-bar{
+      display:flex;align-items:center;justify-content:space-between;
+      background:var(--card);border:1px solid var(--border);
+      border-radius:var(--radius);padding:16px 20px;
+      margin-bottom:24px;
+    }
+    .stats-greeting{font-size:.85rem;color:var(--muted);}
+    .stats-greeting strong{color:var(--text);}
+    .stats-right{display:flex;align-items:center;gap:12px;}
+    .stat-pill{
+      display:flex;align-items:center;gap:6px;
+      background:var(--card2);border:1px solid var(--border2);
+      border-radius:99px;padding:5px 12px;font-size:.75rem;color:var(--muted);
+    }
+    .live-dot{width:6px;height:6px;border-radius:50%;background:var(--success);animation:glow2 1.5s ease-in-out infinite;}
+    @keyframes glow2{0%,100%{box-shadow:0 0 4px var(--success);}50%{box-shadow:0 0 10px var(--success);}}
+    .stat-count{color:var(--text);font-weight:600;}
+
+    /* ADD FORM */
+    .form-card{
+      background:var(--card);border:1px solid var(--border);
+      border-radius:var(--radius);padding:24px;margin-bottom:28px;
+      transition:border-color .2s,box-shadow .2s;
+    }
+    .form-card:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accentglow);}
+    .form-label{font-size:.72rem;color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px;display:block;}
+    .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
+    @media(max-width:500px){.form-row{grid-template-columns:1fr;}}
+    .input-wrap{position:relative;}
+    .input-icon{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--muted2);font-size:.9rem;pointer-events:none;}
+    input[type="text"],input[type="url"]{
+      width:100%;padding:11px 14px 11px 38px;
+      background:var(--card2);border:1px solid var(--border2);
+      border-radius:var(--radius2);color:var(--text);
+      font-family:var(--font);font-size:.85rem;
+      transition:border-color .18s,box-shadow .18s;outline:none;
+    }
+    input:focus{border-color:var(--accent);box-shadow:0 0 0 2px var(--accentglow);}
+    input::placeholder{color:var(--muted2);}
+    .form-actions{display:flex;justify-content:flex-end;}
+    .btn-add{
+      display:inline-flex;align-items:center;gap:8px;
+      background:linear-gradient(135deg,var(--accent),var(--accent2));
+      color:#fff;border:none;border-radius:var(--radius2);
+      padding:11px 24px;font-family:var(--font);font-size:.84rem;font-weight:600;
+      cursor:pointer;transition:all .18s;
+      box-shadow:0 4px 16px var(--accentglow);
+    }
+    .btn-add:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(108,143,255,0.35);}
+    .btn-add:disabled{opacity:.5;cursor:not-allowed;transform:none;}
+
+    /* SECTION HEADER */
+    .section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+    .section-title{font-family:var(--serif);font-size:1.4rem;color:var(--text);font-weight:700;}
+
+    /* BOOKMARK LIST */
+    #bookmark-list{display:flex;flex-direction:column;gap:8px;}
+    .bookmark-item{
+      display:flex;align-items:center;gap:14px;
+      background:var(--card);border:1px solid var(--border);
+      border-radius:var(--radius);padding:14px 16px;
+      transition:border-color .18s,transform .18s,box-shadow .18s;
+      animation:slideIn .3s ease both;
+    }
+    @keyframes slideIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+    .bookmark-item:hover{border-color:var(--border2);transform:translateX(3px);box-shadow:0 4px 20px rgba(0,0,0,0.3);}
+    .bookmark-favicon-wrap{
+      width:36px;height:36px;border-radius:9px;
+      background:var(--card2);border:1px solid var(--border);
+      display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;
+    }
+    .bookmark-favicon{width:20px;height:20px;object-fit:contain;}
+    .bookmark-fallback{font-size:1rem;}
+    .bookmark-info{flex:1;min-width:0;}
+    .bookmark-title{font-size:.88rem;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px;}
+    .bookmark-url{font-size:.72rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .bookmark-url a{color:var(--muted);text-decoration:none;transition:color .15s;}
+    .bookmark-url a:hover{color:var(--accent);}
+    .bookmark-date{
+      font-size:.7rem;color:var(--muted2);flex-shrink:0;
+      background:var(--card2);border:1px solid var(--border);
+      border-radius:99px;padding:3px 10px;white-space:nowrap;
+    }
+    .bookmark-delete{
+      flex-shrink:0;background:none;border:none;cursor:pointer;
+      padding:7px;color:var(--muted2);border-radius:var(--radius2);
+      transition:color .15s,background .15s;display:flex;
+    }
+    .bookmark-delete:hover{color:var(--danger);background:rgba(255,85,85,.1);}
+
+    /* EMPTY */
+    #empty-state{
+      text-align:center;padding:64px 20px;
+      background:var(--card);border:1px dashed var(--border2);border-radius:var(--radius);
+      display:none;
+    }
+    .empty-icon{font-size:3rem;margin-bottom:14px;display:block;}
+    .empty-title{font-family:var(--serif);font-size:1.3rem;color:var(--text);margin-bottom:8px;}
+    .empty-sub{font-size:.83rem;color:var(--muted);line-height:1.6;}
+
+    /* LOADING */
+    #loading-state{display:flex;flex-direction:column;align-items:center;gap:12px;padding:48px;}
+    .spinner{width:28px;height:28px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    .loading-text{font-size:.78rem;color:var(--muted);}
+
+    /* TOAST */
+    #toast{
+      position:fixed;bottom:32px;left:50%;
+      transform:translateX(-50%) translateY(20px);
+      background:var(--card2);border:1px solid var(--border2);
+      color:var(--text);padding:12px 24px;border-radius:var(--radius);
+      font-size:.82rem;opacity:0;transition:opacity .25s,transform .25s;
+      z-index:1000;pointer-events:none;white-space:nowrap;
+      box-shadow:0 8px 32px rgba(0,0,0,0.4);
+      display:flex;align-items:center;gap:8px;
+    }
+    #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+    #toast.toast-error{border-color:var(--danger);color:var(--danger);}
+    #toast.toast-success{border-color:var(--success);color:var(--success);}
+
+    /* SPLASH */
+    #splash{
+      position:fixed;inset:0;background:var(--bg);
+      display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;
+      z-index:9999;
+    }
+    .splash-logo{font-family:var(--serif);font-size:1.6rem;color:var(--text);font-weight:700;}
+    .splash-logo span{color:var(--accent);}
+
+    footer{text-align:center;padding:20px;font-size:.7rem;color:var(--muted2);border-top:1px solid var(--border);}
+  </style>
+</head>
+<body>
+
+<!-- SPLASH -->
+<div id="splash">
+  <div class="logo-icon" style="width:48px;height:48px;font-size:22px;border-radius:14px;">🔖</div>
+  <div class="splash-logo">Book<span>mark</span></div>
+  <div class="spinner"></div>
+</div>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">🔖</div>
+    <span class="logo-text">Book<span>mark</span></span>
+  </div>
+  <div id="user-info">
+    <div class="user-badge">
+      <img id="user-avatar" src="" alt=""/>
+      <div class="avatar-placeholder" id="avatar-placeholder">?</div>
+      <span id="user-name"></span>
+    </div>
+    <button class="btn-signout" onclick="signOut()">Sign out</button>
+  </div>
+</header>
+
+<!-- MAIN -->
+<main>
+
+  <!-- AUTH SCREEN -->
+  <div id="auth-screen">
+    <div class="auth-badge"><span class="auth-badge-dot"></span>Real-time · Private · Secure</div>
+    <h1 class="auth-title">Save what<br/>matters. <em>Instantly.</em></h1>
+    <p class="auth-sub">Your personal bookmark manager. Everything you save is private, synced in real-time across all your tabs.</p>
+    <div class="auth-features">
+      <div class="auth-feature"><span class="auth-feature-icon">🔒</span> Private to you</div>
+      <div class="auth-feature"><span class="auth-feature-icon">⚡</span> Real-time sync</div>
+      <div class="auth-feature"><span class="auth-feature-icon">🗑️</span> Delete anytime</div>
+    </div>
+    <button class="btn-google" id="google-btn" onclick="signInWithGoogle()">
+      <svg width="18" height="18" viewBox="0 0 48 48" fill="none">
+        <path d="M44.5 20H24v8.5h11.8C34.7 33.9 30.1 37 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 5.1 29.6 3 24 3 12.4 3 3 12.4 3 24s9.4 21 21 21c10.5 0 20-7.5 20-21 0-1.4-.2-2.7-.5-4z" fill="#FFC107"/>
+        <path d="M6.3 14.7l7 5.1C15.1 16.1 19.2 13 24 13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 5.1 29.6 3 24 3c-7.7 0-14.4 4.4-17.7 11.7z" fill="#FF3D00"/>
+        <path d="M24 45c5.5 0 10.5-1.8 14.3-5l-6.6-5.6C29.7 36.1 27 37 24 37c-6.1 0-10.7-3.9-11.8-9.2l-7 5.4C8.1 40.6 15.5 45 24 45z" fill="#4CAF50"/>
+        <path d="M44.5 20H24v8.5h11.8c-.6 2.6-2.2 4.8-4.4 6.3l6.6 5.6C42.3 37 45 31 45 24c0-1.4-.2-2.7-.5-4z" fill="#1976D2"/>
+      </svg>
+      Continue with Google
+    </button>
+  </div>
+
+  <!-- APP SCREEN -->
+  <div id="app-screen">
+
+    <!-- Stats Bar -->
+    <div class="stats-bar">
+      <div class="stats-greeting">Welcome back, <strong id="first-name">there</strong> 👋</div>
+      <div class="stats-right">
+        <div class="stat-pill"><span class="stat-count" id="bookmark-count">0</span> bookmarks</div>
+        <div class="stat-pill"><span class="live-dot"></span> live</div>
+      </div>
+    </div>
+
+    <!-- Add Form -->
+    <div class="form-card">
+      <span class="form-label">Add new bookmark</span>
+      <form id="add-form" onsubmit="addBookmark(event)">
+        <div class="form-row">
+          <div class="input-wrap">
+            <span class="input-icon">✏️</span>
+            <input type="text" id="input-title" placeholder="Title (e.g. GitHub)" required autocomplete="off"/>
+          </div>
+          <div class="input-wrap">
+            <span class="input-icon">🔗</span>
+            <input type="url" id="input-url" placeholder="https://example.com" required autocomplete="off"/>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn-add" id="add-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add Bookmark
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Section Header -->
+    <div class="section-header">
+      <h2 class="section-title">My Bookmarks</h2>
+    </div>
+
+    <div id="loading-state"><div class="spinner"></div><span class="loading-text">Loading bookmarks…</span></div>
+    <div id="empty-state">
+      <span class="empty-icon">🔖</span>
+      <div class="empty-title">No bookmarks yet</div>
+      <p class="empty-sub">Add your first bookmark above.<br/>It'll appear here instantly.</p>
+    </div>
+    <div id="bookmark-list"></div>
+  </div>
+
+</main>
+
+<footer>Smart Bookmark App · Built with Supabase + Vanilla JS · Real-time across all tabs</footer>
+<div id="toast"></div>
+
+<script>
+  const SUPABASE_URL  = 'https://akiaopiahzhgnilplogw.supabase.co';
+  const SUPABASE_ANON = 'sb_publishable_MxZpG1RBi1Fyc7QRT7G9Hw_S__lDae9';
+
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
+    auth: { detectSessionInUrl: true, persistSession: true, autoRefreshToken: true }
+  });
+
+  let currentUser = null;
+  let realtimeChannel = null;
+
+  async function initApp() {
+    const { data: { session } } = await sb.auth.getSession();
+    hideSplash();
+    if (session?.user) {
+      currentUser = session.user;
+      showApp();
+      updateUserUI();
+      await loadBookmarks();
+      subscribeRealtime();
+    } else {
+      showAuth();
+    }
+    sb.auth.onAuthStateChange(async (_event, session) => {
+      if (session?.user) {
+        currentUser = session.user;
+        showApp();
+        updateUserUI();
+        await loadBookmarks();
+        subscribeRealtime();
+      } else {
+        currentUser = null;
+        if (realtimeChannel) { sb.removeChannel(realtimeChannel); realtimeChannel = null; }
+        showAuth();
+      }
+    });
+  }
+
+  function hideSplash() { document.getElementById('splash').style.display = 'none'; }
+
+  async function signInWithGoogle() {
+    const btn = document.getElementById('google-btn');
+    btn.disabled = true; btn.textContent = 'Redirecting to Google…';
+    const { error } = await sb.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin + window.location.pathname,
+        queryParams: { access_type: 'offline', prompt: 'select_account' }
+      }
+    });
+    if (error) { showToast(error.message, 'error'); btn.disabled = false; btn.textContent = 'Continue with Google'; }
+  }
+
+  async function signOut() {
+    await sb.auth.signOut();
+    currentUser = null;
+    showAuth();
+  }
+
+  function showAuth() {
+    document.getElementById('auth-screen').style.display = 'flex';
+    document.getElementById('app-screen').style.display  = 'none';
+    document.getElementById('user-info').style.display   = 'none';
+  }
+
+  function showApp() {
+    document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('app-screen').style.display  = 'block';
+    document.getElementById('user-info').style.display   = 'flex';
+  }
+
+  function updateUserUI() {
+    if (!currentUser) return;
+    const meta = currentUser.user_metadata || {};
+    const name = meta.full_name || meta.name || currentUser.email || '';
+    const firstName = name.split(' ')[0];
+    document.getElementById('user-name').textContent  = name;
+    document.getElementById('first-name').textContent = firstName;
+    const av = document.getElementById('user-avatar');
+    const ph = document.getElementById('avatar-placeholder');
+    if (meta.avatar_url || meta.picture) {
+      av.src = meta.avatar_url || meta.picture;
+      av.style.display = 'block';
+      ph.style.display = 'none';
+    } else {
+      ph.textContent = firstName.charAt(0).toUpperCase();
+    }
+  }
+
+  async function loadBookmarks() {
+    document.getElementById('loading-state').style.display = 'flex';
+    document.getElementById('bookmark-list').innerHTML = '';
+    document.getElementById('empty-state').style.display = 'none';
+
+    const { data, error } = await sb.from('bookmarks').select('*')
+      .eq('user_id', currentUser.id).order('created_at', { ascending: false });
+
+    document.getElementById('loading-state').style.display = 'none';
+    if (error) { showToast(error.message, 'error'); return; }
+    if (!data || data.length === 0) {
+      document.getElementById('empty-state').style.display = 'block';
+      updateCount(0); return;
+    }
+    data.forEach(bm => renderBookmark(bm, false));
+    updateCount(data.length);
+  }
+
+  async function addBookmark(e) {
+    e.preventDefault();
+    if (!currentUser) return;
+    const title = document.getElementById('input-title').value.trim();
+    const url   = normalizeURL(document.getElementById('input-url').value.trim());
+    if (!title || !url) { showToast('Title and URL are required', 'error'); return; }
+    const btn = document.getElementById('add-btn');
+    btn.disabled = true; btn.textContent = 'Saving…';
+    const { error } = await sb.from('bookmarks').insert({ user_id: currentUser.id, title, url });
+    btn.disabled = false;
+    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Bookmark`;
+    if (error) { showToast(error.message, 'error'); return; }
+    document.getElementById('input-title').value = '';
+    document.getElementById('input-url').value   = '';
+    showToast('✓ Bookmark saved!', 'success');
+  }
+
+  async function deleteBookmark(id) {
+    const el = document.getElementById(`bm-${id}`);
+    if (el) { el.style.opacity = '.4'; el.style.transform = 'scale(0.98)'; }
+    const { error } = await sb.from('bookmarks').delete().eq('id', id).eq('user_id', currentUser.id);
+    if (error) { showToast(error.message, 'error'); if (el) { el.style.opacity='1'; el.style.transform=''; } }
+  }
+
+  function subscribeRealtime() {
+    if (realtimeChannel) sb.removeChannel(realtimeChannel);
+    realtimeChannel = sb.channel('bm-' + currentUser.id)
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'bookmarks', filter: `user_id=eq.${currentUser.id}` },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            document.getElementById('empty-state').style.display = 'none';
+            renderBookmark(payload.new, true);
+            updateCountFromDOM();
+          }
+          if (payload.eventType === 'DELETE') {
+            const el = document.getElementById(`bm-${payload.old.id}`);
+            if (el) el.remove();
+            updateCountFromDOM();
+            if (!document.querySelectorAll('.bookmark-item').length)
+              document.getElementById('empty-state').style.display = 'block';
+          }
+        })
+      .subscribe();
+  }
+
+  function renderBookmark(bm, prepend) {
+    const list = document.getElementById('bookmark-list');
+    const item = document.createElement('div');
+    item.className = 'bookmark-item'; item.id = `bm-${bm.id}`;
+    const safeTitle = escapeHTML(bm.title);
+    const safeURL   = escapeHTML(bm.url);
+    let domain = '';
+    try { domain = new URL(bm.url).hostname; } catch(e) {}
+    const favicon = domain ? `https://www.google.com/s2/favicons?domain=${domain}&sz=32` : '';
+    item.innerHTML = `
+      <div class="bookmark-favicon-wrap">
+        ${favicon
+          ? `<img class="bookmark-favicon" src="${favicon}" alt="" onerror="this.parentElement.innerHTML='<span class=bookmark-fallback>🔗</span>'"/>`
+          : `<span class="bookmark-fallback">🔗</span>`}
+      </div>
+      <div class="bookmark-info">
+        <div class="bookmark-title">${safeTitle}</div>
+        <div class="bookmark-url"><a href="${safeURL}" target="_blank" rel="noopener noreferrer">${safeURL}</a></div>
+      </div>
+      <div class="bookmark-date">${formatDate(bm.created_at)}</div>
+      <button class="bookmark-delete" onclick="deleteBookmark('${bm.id}')" title="Delete bookmark">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
+          <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+        </svg>
+      </button>`;
+    if (prepend) list.prepend(item); else list.appendChild(item);
+  }
+
+  function normalizeURL(url) {
+    if (!url) return '';
+    if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+    return url;
+  }
+  function formatDate(iso) {
+    if (!iso) return '';
+    return new Date(iso).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'2-digit' });
+  }
+  function updateCount(n) {
+    document.getElementById('bookmark-count').textContent = n;
+  }
+  function updateCountFromDOM() {
+    updateCount(document.querySelectorAll('.bookmark-item').length);
+  }
+  function escapeHTML(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  let toastTimer;
+  function showToast(msg, type='success') {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.className = `show toast-${type}`;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.className = '', 3000);
+  }
+
+  initApp();
+</script>
+</body>
+</html>
